@@ -14,6 +14,7 @@ function [e, Bu, Bi, Q, P] = collab_svd(f, lambda, gamma, Rs, max_iter, k)
     
     % main loop
     for i = 1:max_iter 
+        i
         Rp = predict_ratings(mu, Bu, Bi, Q, P);
         [Bu, Bi, Q, P] = update(Bu, Bi, Q, P, Rp, Rtrain, gamma, lambda);
     end
@@ -48,11 +49,11 @@ end
 
 % TODO what's a smart way to init these?
 function [Bu, Bi, Q, P] = bootstrap(Rs, f)
-    [U, I] = size(Rs);
-    Bu = zeros(1,U) + 1;
-    Bi = zeros(1,I) + 1;
-    Q = zeros(f,I) + 1;
-    P = zeros(f,U) + 1;
+    [U, I] = size(Rs);    
+    Bu = mean(Rs, 1) + 0.1; % TODO: i think these are basically what they're supposed to be?
+    Bi = mean(Rs, 2)' + 0.1;
+    Q = zeros(f,U) + 1;
+    P = zeros(f,I) + 1;
 end
 
 
@@ -61,18 +62,18 @@ function Rp = predict_ratings(mu, Bu, Bi, Q, P)
     U = size(P,2);
     I = size(Q,2);
 
-    BuBlock = repmat(Bu, I,1)';
-    BiBlock = repmat(Bi',1,U)';
-    Rp = mu + BuBlock + BiBlock + P' * Q;
+    BuBlock = repmat(Bu, I,1);
+    BiBlock = repmat(Bi',1,U);
+    Rp = mu + BuBlock + BiBlock + Q' * P;
 end
 
 
 function [nBu, nBi, nQ, nP] = update(Bu, Bi, Q, P, Rp, Rs, gamma, lambda)
     E = Rs - Rp; % UxI
-    nBu = Bu + gamma * (sum(E,2)' - lambda * Bu); % sum E along i's
-    nBi = Bi + gamma * (sum(E,1) - lambda * Bi);
-    nQ = Q + gamma * (P * E  - lambda * Q);
-    nP = P + gamma * (Q * E' - lambda * P);
+    nBu = Bu + gamma * (sum(E,1)  - lambda * Bu); % sum E along i's
+    nBi = Bi + gamma * (sum(E,2)' - lambda * Bi);
+    nQ = Q + gamma * (P * E' - lambda * Q);
+    nP = P + gamma * (Q * E  - lambda * P);
 end
 
 

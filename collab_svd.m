@@ -6,9 +6,9 @@
 %   P:  fxU matrix. row u = user u's affinity
 %   Rp: IxU matrix. Predicted ratings.
 
-function [e, Bu, Bi, Q, P] = svd(f, lambda, gamma, mu, Rs, max_iter)
+function [e, Bu, Bi, Q, P] = collab_svd(f, lambda, gamma, Rs, max_iter, k)
     
-    [Rtrain, test_indices] = prep_data(Rs, keep_ratio);
+    [Rtrain, test_indices, mu] = prep_data(Rs, k);
 
     [Bu, Bi, Q, P] = bootstrap(Rtrain, f);
     
@@ -25,13 +25,13 @@ end
 % % HELPER FUNCTIONS
 
 % Rs(test_indices) = values to be guessed
-function [train, test_indices] = prep_data(Rs, k)
+function [train, test_indices, mu] = prep_data(Rs, k)
 
     flatRs = Rs(:);
     indexes = 1:length(flatRs);
     nonzero_is = indexes(flatRs > 0); % get all nonzero indices (can't test on a zero)
     if k >= length(nonzero_is)
-       disp 'UH OH. Your k is too large. You will not have any data left';
+       disp 'ERROR: Your k is too large. You will not have any data left';
     end
     is = randsample(length(nonzero_is), k); % pick k of the eligible indices
     test_indices = nonzero_is(is); % 1-dimensional index of test points
@@ -39,16 +39,20 @@ function [train, test_indices] = prep_data(Rs, k)
     % training set = whole dataset w/ test points zero'd out
     train = Rs;
     train(test_indices) = 0;
+    
+    % mu = avg. rating. so sum everything and divide by num of nonzero
+    % entries that remain in the test set
+    mu = sum(train(:)) / (length(nonzero_is) - k);
 end
 
 
 % TODO what's a smart way to init these?
 function [Bu, Bi, Q, P] = bootstrap(Rs, f)
     [U, I] = size(Rs);
-    Bu = zeros(U);
-    Bi = zeros(I);
-    Q = zeros(f,I);
-    P = zeros(f,U);
+    Bu = zeros(1,U) + 1;
+    Bi = zeros(1,I) + 1;
+    Q = zeros(f,I) + 1;
+    P = zeros(f,U) + 1;
 end
 
 
@@ -57,18 +61,18 @@ function Rp = predict_ratings(mu, Bu, Bi, Q, P)
     U = size(P,2);
     I = size(Q,2);
 
-    BuBlock = repmat(Bu, I,1);
-    BiBlock = repmat(Bi',1,U);
-    Rp = mu + BuBlock + BiBlock + Q' * P;
+    BuBlock = repmat(Bu, I,1)';
+    BiBlock = repmat(Bi',1,U)';
+    Rp = mu + BuBlock + BiBlock + P' * Q;
 end
 
 
 function [nBu, nBi, nQ, nP] = update(Bu, Bi, Q, P, Rp, Rs, gamma, lambda)
-    E = Rs - Rp; % IxU
-    nBu = Bu + gamma * (sum(E,1) - lambda * Bu); % sum E along i's
-    nBi = Bi + gamma * (sum(E,2)' - lambda * Bi);
-    nQ = Q + gamma * (P * E' - lambda * Q);
-    nP = P + gamma * (Q * E  - lambda * P);
+    E = Rs - Rp; % UxI
+    nBu = Bu + gamma * (sum(E,2)' - lambda * Bu); % sum E along i's
+    nBi = Bi + gamma * (sum(E,1) - lambda * Bi);
+    nQ = Q + gamma * (P * E  - lambda * Q);
+    nP = P + gamma * (Q * E' - lambda * P);
 end
 
 
@@ -78,7 +82,7 @@ function e = error(Bu, Bi, Q, P, Rp, Rs, lambda, test_indices)
     diff_sq = (Rp(test_indices) - Rs(test_indices)) .^ 2;
     diff = sum(diff_sq(:));
     
-    e = diff
+    e = diff / length(test_indices);
 end
 
 % function e = reg_sq_error(Bu, Bi, Q, P, Rp, Rs, lambda)

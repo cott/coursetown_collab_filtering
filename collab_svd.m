@@ -6,46 +6,15 @@
 %   P:  fxU matrix. row u = user u's affinity
 %   Rp: IxU matrix. Predicted ratings.
 
-function [e, Bu, Bi, Q, P] = collab_svd(f, lambda, gamma, max_iter, max_value, Rs, Rtrain, test_indices, mu)
+function Rp = collab_svd(f, lambda, gamma, max_iter, max_value, Rtrain, mu)
     
     [Bu, Bi, Q, P] = bootstrap(Rtrain, f);
     
     % main loop
     for i = 1:max_iter  
-        i
         Rp = clip_to_range(predict_ratings_easy(mu, Bu, Bi, Q, P), max_value);
         [Bu, Bi, Q, P] = update_procedural(Bu, Bi, Q, P, Rp, Rtrain, gamma, lambda);
-
-        
-        
-        
-        
-%         [nBu, nBi, nQ, nP] = update_procedural(Bu, Bi, Q, P, Rp, Rtrain, gamma, lambda);
-%         [Bu, Bi, Q, P] = update(Bu, Bi, Q, P, Rp, Rtrain, gamma, lambda);
-        
-        
-        
-        % assert update works like update_procedural (just much faster,
-        % hopefully)
-        
-%         diff = abs(nBu - Bu);
-%         diff_vals = diff(diff > 0)
-%         'max diff vals'
-%         max(diff_vals)
-%         'num diff vals'
-%         length(diff_vals)
-%         'out of'
-%         size(Bu)
-%         'with min'
-%         min(abs(Bu))
-%         
-%         if ~(isequal(nBu,Bu))
-%             'Bu mismatch'
-%             sum(abs(nBu - Bu))
-%         end
     end
-    
-    e = error(Bu, Bi, Q, P, Rp, Rs, lambda, test_indices);
 end
 
 
@@ -198,15 +167,6 @@ function [nBu, nBi, nQ, nP] = update_semi_procedural(Bu, Bi, Q, P, Rp, Rs, gamma
 
 end
 
-
-% we're trying to minimize the reg_sq_error, but is that what we should be
-% REPORTING? I don't think it is?
-function e = error(Bu, Bi, Q, P, Rp, Rs, lambda, test_indices)
-    diff_sq = (Rp(test_indices) - Rs(test_indices)) .^ 2;
-    diff = sum(diff_sq(:));
-    
-    e = diff / length(test_indices);
-end
 
 % function e = reg_sq_error(Bu, Bi, Q, P, Rp, Rs, lambda)
 %     I = size(Q,2);

@@ -19,12 +19,14 @@ num_books = length(unique(data(2,:)));
 
 % note: max(user) and max(books) are both smaller than 10k
 
-R = zeros(num_books, num_users);
+collapse_factor = 1;
+
+R = zeros(round(num_books / collapse_factor), num_users);
 for j = 1:size(data,2)
 
     col = data(:,j);
     % note: matlab doesn't like indexing from 0
-    R(col(2)+1, col(1)+1) = col(3);
+    R(round(col(2) / collapse_factor + 1), col(1)+1) = col(3);
     
 end
 

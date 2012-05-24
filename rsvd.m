@@ -6,14 +6,17 @@
 %   P:  fxU matrix. row u = user u's affinity
 %   Rp: IxU matrix. Predicted ratings.
 
-function Rp = rsvd(f, lambda, gamma, max_iter, max_value, Rtrain)
+function Rp = rsvd(f, lambda, gamma, max_iter, Rbase, Rtrain, Qseed, Pseed, max_value)
     
     mu = mean(Rtrain(Rtrain > 0));
-    [Bu, Bi, Q, P] = bootstrap(Rtrain, f);
-    
+%     [Q, P] = bootstrap(Rtrain, f);
+    Q = Qseed;
+    P = Pseed;
+        
     % main loop
     for i = 1:max_iter  
-        Rp = clip_to_range(predict_ratings(mu, Q, P), max_value);
+        Rp = clip(predict_ratings(Q, P, Rbase), 1, 10);
+        
         [Q, P] = update(Q, P, Rp, Rtrain, gamma, lambda);
         gamma = gamma * 0.9; % decrease step size
     end
@@ -23,27 +26,26 @@ end
 % always positive? Shouldn't they reflect the deviation from the mean (mu)?
 
 % TODO what's a smart way to init these?
-function [Bu, Bi, Q, P] = bootstrap(Rs, f)
-    [U, I] = size(Rs);    
+function [Q, P] = bootstrap(Rs, f)
+    [I, U] = size(Rs);
     
     % NOTE: cols of Q and P always update as simply a sum of other cols in
     % Q and P, so if we start them all at the same value, for instance,
     % it's impossible for different features to have different values
     % within a single column. ATM just randomize, but this is bad!
-    Q = rand(f,U) .* 0.5 - 0.25;
-    P = rand(f,I) .* 0.5 - 0.25;
-  
+    Q = rand(f,I) .* 0.5 - 0.25;
+    P = rand(f,U) .* 0.5 - 0.25;
 end
 
 
-function R = clip_to_range(R, max_value)
-    R(R < 0) = 0;
+function R = clip(R, min_value, max_value)
+    R(R < min_value) = min_value;
     R(R > max_value) = max_value;
 end
 
 
-function Rp = predict_ratings(Q, P)
-    Rp = Q' * P;
+function Rp = predict_ratings(Q, P, base)
+    Rp = Q' * P + base;
 end
 
 
@@ -63,14 +65,14 @@ function [nQ, nP] = update(Q, P, Rp, Rs, lrate, lambda)
         i = mod(v-1,I) + 1;
         u = ceil(v / I);
         
-        nQ(:,i) = (1 - lrate * lambda) * nQ(:,i) + lrate * (E(i,u) * nP(:,u) - lambda * nQ(:,i));
-        nP(:,u) = nP(:,u) + lrate * (E(i,u) * nQ(:,i) - lambda * nP(:,u));
+        nQ(:,i) = (1 - lrate * lambda) * nQ(:,i) + lrate * (E(i,u) * nP(:,u));
+        nP(:,u) = (1 - lrate * lambda) * nP(:,u) + lrate * (E(i,u) * nQ(:,i));
     end
             
     % look for fishy trends w/ P and Q
-    P_mag = mean(abs(nP(:))) - mean(abs(P(:)))
-    Q_mag = mean(abs(nQ(:))) - mean(abs(Q(:)))
-    
-    diff = mean(abs(nP(:) - P(:)))
+    P_mag = mean(abs(nP(:))) - mean(abs(P(:)));
+    Q_mag = mean(abs(nQ(:))) - mean(abs(Q(:)));
+    diff = mean(abs(nP(:) - P(:)));
+%     display(sprintf('deltas: %f , %f , %f', P_mag, Q_mag, diff));
 end
 

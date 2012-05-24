@@ -7,7 +7,7 @@
 data = int0(:,1:2000);
 
 % num_nonzeros = sum(data(3,:) > 0);
-nonzero_rows = data(3,:) > 0;
+nonzero_rows = data(3,:) ~= 0;
 length(find(nonzero_rows));
 data = data(:,nonzero_rows);
 
@@ -60,23 +60,23 @@ display(sprintf('starting %d-fold cross-validation.',k));
 
 i = 6;
 % for gamma = [0.001, 0.005, 0.007, 0.01, 0.02, 0.05];
-for lambda = [0.001, 0.003, 0.009, 0.02, 0.06, 0.1, 0.2, 0.3, 0.5, 1, 2, 4, 8];
+for lambda = [0.0005, 0.001, 0.003, 0.009, 0.02, 0.06, 0.1, 0.2, 0.3, 0.5, 1, 2];
 
 % loop for k-fold cross-validation
 % for i = 1:k
     %% prep the loop
     
-    display(sprintf('%f',lambda));
+    display(sprintf('lambda = %f',lambda));
     
     train = R;
     low = 1 + floor((i_count * (i-1))/k);
     hi = 1 + floor((i_count * i)/k);
     test_indices = indices(low:hi);
     train(test_indices) = 0; % zero the test indices
-    
+       
     %% run & evaluate
     
-%     R_svd = collab_svd(f, lambda, gamma, max_iter, max_value, train);   
+    R_svd = collab_svd(f, lambda, gamma, max_iter, max_value, train);   
     R_base = baseline(train);
     
     svd_err(i,1) = rms_error(R_svd, R, test_indices);
@@ -86,6 +86,38 @@ for lambda = [0.001, 0.003, 0.009, 0.02, 0.06, 0.1, 0.2, 0.3, 0.5, 1, 2, 4, 8];
     
     display(sprintf('loop %d. SVD {rms: %f, mae: %f}, BASE {rms: %f, mae: %f}',i,svd_err(i,1),svd_err(i,2),base_err(i,1),base_err(i,2)));
     
+end
+
+
+
+
+%%
+i = 5;
+mu = mean(train(train ~= 0));
+smu = sqrt(mu);
+[I,U] = size(train);
+bound = 0.5;
+Q = rand(f,I) .* bound - bound/2;
+P = rand(f,U) .* bound - bound/2;
+
+display('starting loop');
+
+for lambda = [0.001, 0.003, 0.009, 0.02, 0.06, 0.1, 0.2, 0.3, 0.5, 1, 2, 4, 8];
+    %%
+
+    gamma = 0.005;
+    
+    base = baseline(train);
+%     prepped_train = zeros(size(train,1),size(train,2));
+%     prepped_train(train ~= 0) = train(train ~= 0) - base(train ~= 0);
+    R_svd = rsvd(f, lambda, gamma, max_iter, base, train, Q, P, max_value);
+    
+    svd_err(i,1) = rms_error(R_svd, R, test_indices);
+    svd_err(i,2) = mae_error(R_svd, R, test_indices);
+    base_err(i,1) = rms_error(base, R, test_indices);
+    base_err(i,2) = mae_error(base, R, test_indices);
+    
+    display(sprintf('loop %d. lambda %f. SVD {rms: %f, mae: %f}, BASE {rms: %f, mae: %f}',i,lambda,svd_err(i,1),svd_err(i,2),base_err(i,1),base_err(i,2)));   
 end
 
 %% run svd++

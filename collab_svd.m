@@ -24,9 +24,9 @@ end
 
 % TODO what's a smart way to init these?
 function [Bu, Bi, Q, P] = bootstrap(Rs, f)
-    [U, I] = size(Rs);    
-    Bu = mean(Rs, 1) + 0.01; % TODO: i think these are basically what they're supposed to be?
-    Bi = mean(Rs, 2)' + 0.01;
+    [U, I] = size(Rs);
+    [x, Bu, Bi] = baseline(Rs);
+    Bi = Bi';
     
     % NOTE: cols of Q and P always update as simply a sum of other cols in
     % Q and P, so if we start them all at the same value, for instance,
@@ -61,12 +61,6 @@ function [Bu, Bi, Q, P] = bootstrap(Rs, f)
 %     Bu = avgX;
 %     Bi = avgY';
     
-end
-
-
-function R = clip_to_range(R, max_value)
-    R(R < 0) = 0;
-    R(R > max_value) = max_value;
 end
 
 
@@ -137,9 +131,9 @@ function [nBu, nBi, nQ, nP] = update_procedural(Bu, Bi, Q, P, Rp, Rs, gamma, lam
     end
             
     % look for fishy trends w/ P and Q
-    P_mag = mean(abs(nP(:))) - mean(abs(P(:)))
-    Q_mag = mean(abs(nQ(:))) - mean(abs(Q(:)))
+    P_mag = mean(abs(nP(:))) - mean(abs(P(:)));
+    Q_mag = mean(abs(nQ(:))) - mean(abs(Q(:)));
     
-    diff = mean(abs(nP(:) - P(:)))
+    diff = mean(abs(nP(:) - P(:)));
 end
 

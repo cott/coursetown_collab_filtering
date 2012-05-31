@@ -8,14 +8,15 @@
 
 function Rp = rsvd(f, lambda, gamma, max_iter, Rbase, Rtrain, Qseed, Pseed, max_value)
     
-    mu = mean(Rtrain(Rtrain > 0));
 %     [Q, P] = bootstrap(Rtrain, f);
     Q = Qseed;
     P = Pseed;
         
     % main loop
     for i = 1:max_iter  
-        Rp = clip(predict_ratings(Q, P, Rbase), 1, 10);
+        % does clipping during training actually hurt instead of help?
+%         Rp = clip(predict_ratings(Q, P, Rbase), 1, max_value);
+        Rp = predict_ratings(Q,P,Rbase);
         
         [Q, P] = update(Q, P, Rp, Rtrain, gamma, lambda);
         gamma = gamma * 0.9; % decrease step size
@@ -59,20 +60,24 @@ function [nQ, nP] = update(Q, P, Rp, Rs, lrate, lambda)
     nP = P;
     
     % only update using KNOWN entries (nonzero in Rs)
-    nonzero_is = find(Rs);
+    nonzero_is = find(Rs > 0);
     for j = 1:length(nonzero_is)
         v = nonzero_is(j);
         i = mod(v-1,I) + 1;
         u = ceil(v / I);
         
-        nQ(:,i) = (1 - lrate * lambda) * nQ(:,i) + lrate * (E(i,u) * nP(:,u));
-        nP(:,u) = (1 - lrate * lambda) * nP(:,u) + lrate * (E(i,u) * nQ(:,i));
+        % update using old P & Q.
+        % WAIT this is weird. we could just use P and Q instead of nP and
+        % nQ... but instead we're using semi-new data?
+        old_q = nQ(:,i);
+        nQ(:,i) = (1 - lrate * lambda) * Q(:,i) + lrate * (E(i,u) * P(:,u));
+        nP(:,u) = (1 - lrate * lambda) * P(:,u) + lrate * (E(i,u) * Q(:,i));
     end
             
     % look for fishy trends w/ P and Q
-    P_mag = mean(abs(nP(:))) - mean(abs(P(:)));
-    Q_mag = mean(abs(nQ(:))) - mean(abs(Q(:)));
-    diff = mean(abs(nP(:) - P(:)));
+%     P_mag = mean(abs(nP(:)));
+%     Q_mag = mean(abs(nQ(:)));
+%     diff = mean(abs(nP(:) - P(:)));
 %     display(sprintf('deltas: %f , %f , %f', P_mag, Q_mag, diff));
 end
 
